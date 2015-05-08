@@ -20,55 +20,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package collectors
+package data
 
-import (
-	"time"
+type Values map[string]float64
 
-	"github.com/AlexanderThaller/epimetheus/src/data"
-	"github.com/AlexanderThaller/logger"
-	"github.com/juju/errgo"
-	"github.com/prometheus/client_golang/prometheus"
-)
+func NewValues() Values {
+	values := make(map[string]float64)
 
-func Load() error {
-	l := logger.New("collectors", "load")
-
-	load1 := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "load_1",
-		Help: "Load average over the last minute",
-	})
-
-	load5 := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "load_5",
-		Help: "Load average over the last five minutes",
-	})
-
-	load15 := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "load_15",
-		Help: "Load average over the last 15 minutes",
-	})
-
-	prometheus.MustRegister(load1)
-	prometheus.MustRegister(load5)
-	prometheus.MustRegister(load15)
-
-	go func() {
-		for {
-			values, err := data.Cpu()
-			if err != nil {
-				l.Warning(errgo.Notef(err, "can not get load values"))
-				time.Sleep(time.Second * 5)
-				continue
-			}
-
-			load1.Set(values["load.01"])
-			load5.Set(values["load.05"])
-			load15.Set(values["load.15"])
-
-			time.Sleep(time.Second * 5)
-		}
-	}()
-
-	return nil
+	return Values(values)
 }

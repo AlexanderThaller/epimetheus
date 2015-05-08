@@ -66,6 +66,7 @@ func alert_and_debug(l logger.Logger, err error, message string) {
 func configure() error {
 	viper.SetConfigName("config")
 	viper.AddConfigPath(path.Join("/etc/", Name))
+	viper.AddConfigPath(path.Join("/usr/local/etc/", Name))
 	viper.AddConfigPath(path.Join("$HOME", Name))
 
 	err := viper.ReadInConfig()
