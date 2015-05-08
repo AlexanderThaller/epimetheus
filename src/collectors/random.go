@@ -20,69 +20,33 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package main
+package collectors
 
 import (
-	"net/http"
-	"os"
-	"path"
+	"math/rand"
+	"time"
 
-	"github.com/AlexanderThaller/logger"
-	"github.com/juju/errgo"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/spf13/viper"
-
-	"github.com/AlexanderThaller/epimetheus/src/collectors"
 )
 
-const (
-	Name = "epimetheus"
-)
+func Random() error {
+	rand.Seed(time.Now().UnixNano())
 
-func main() {
-	l := logger.New(Name, "main")
+	name := "random"
+	collector := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: name,
+		Help: "Random values.",
+	})
 
-	err := configure()
-	if err != nil {
-		alert_and_debug(l, err, "can not configure application")
-		os.Exit(1)
-	}
+	prometheus.MustRegister(collector)
+	collector.Set(rand.Float64())
 
-	err = startCollectors()
-	if err != nil {
-		alert_and_debug(l, err, "can not start collectors")
-		os.Exit(1)
-	}
-
-	http.Handle("/metrics", prometheus.Handler())
-	http.ListenAndServe(viper.GetString("ListenOn"), nil)
-}
-
-func alert_and_debug(l logger.Logger, err error, message string) {
-	l.Alert(message, ": ", err.Error())
-	l.Debug(message, ": ", errgo.Details(err))
-}
-
-func configure() error {
-	viper.SetConfigName("config")
-	viper.AddConfigPath(path.Join("/etc/", Name))
-	viper.AddConfigPath(path.Join("$HOME", Name))
-
-	err := viper.ReadInConfig()
-	if err != nil {
-		return errgo.Notef(err, "can not access config file")
-	}
-
-	viper.SetDefault("ListenOn", ":8080")
-
-	return nil
-}
-
-func startCollectors() error {
-	err := collectors.Load()
-	if err != nil {
-		return errgo.Notef(err, "can not start load collector")
-	}
+	go func() {
+		for {
+			collector.Set(rand.Float64())
+			time.Sleep(time.Second * 5)
+		}
+	}()
 
 	return nil
 }

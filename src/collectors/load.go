@@ -20,69 +20,53 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package main
+package collectors
 
 import (
-	"net/http"
-	"os"
-	"path"
+	"time"
 
 	"github.com/AlexanderThaller/logger"
 	"github.com/juju/errgo"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/spf13/viper"
-
-	"github.com/AlexanderThaller/epimetheus/src/collectors"
+	"github.com/shirou/gopsutil/load"
 )
 
-const (
-	Name = "epimetheus"
-)
+func Load() error {
+	l := logger.New("collectors", "load")
 
-func main() {
-	l := logger.New(Name, "main")
+	load1 := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "load_1",
+		Help: "Load average over the last minute",
+	})
 
-	err := configure()
-	if err != nil {
-		alert_and_debug(l, err, "can not configure application")
-		os.Exit(1)
-	}
+	load5 := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "load_5",
+		Help: "Load average over the last five minutes",
+	})
 
-	err = startCollectors()
-	if err != nil {
-		alert_and_debug(l, err, "can not start collectors")
-		os.Exit(1)
-	}
+	load15 := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "load_15",
+		Help: "Load average over the last 15 minutes",
+	})
 
-	http.Handle("/metrics", prometheus.Handler())
-	http.ListenAndServe(viper.GetString("ListenOn"), nil)
-}
+	prometheus.MustRegister(load1)
+	prometheus.MustRegister(load5)
+	prometheus.MustRegister(load15)
 
-func alert_and_debug(l logger.Logger, err error, message string) {
-	l.Alert(message, ": ", err.Error())
-	l.Debug(message, ": ", errgo.Details(err))
-}
+	go func() {
+		for {
+			load, err := load.LoadAvg()
+			if err != nil {
+				l.Warning(errgo.Notef(err, "can not get load stats"))
+				time.Sleep(time.Second * 5)
+				continue
+			}
 
-func configure() error {
-	viper.SetConfigName("config")
-	viper.AddConfigPath(path.Join("/etc/", Name))
-	viper.AddConfigPath(path.Join("$HOME", Name))
-
-	err := viper.ReadInConfig()
-	if err != nil {
-		return errgo.Notef(err, "can not access config file")
-	}
-
-	viper.SetDefault("ListenOn", ":8080")
-
-	return nil
-}
-
-func startCollectors() error {
-	err := collectors.Load()
-	if err != nil {
-		return errgo.Notef(err, "can not start load collector")
-	}
+			load1.Set(load.Load1)
+			load5.Set(load.Load5)
+			load15.Set(load.Load15)
+		}
+	}()
 
 	return nil
 }
